@@ -93,6 +93,7 @@ async def main():
     
     # Execute tools if requested
     if response.tool_calls:
+        tool_results = []
         for tool_call in response.tool_calls:
             print(f"🔧 Gọi tool: {tool_call['name']}")
             selected_tool = tool_map.get(tool_call["name"])
@@ -101,11 +102,28 @@ async def main():
             else:
                 tool_result = selected_tool.invoke(tool_call["args"])
 
+            tool_results.append(tool_result)
             messages.append(ToolMessage(content=tool_result, tool_call_id=tool_call["id"]))
         
-        # Second LLM call - synthesize final answer
-        final_response = await llm_with_tools.ainvoke(messages)
-        print(f"\n✅ Kết quả:\n{final_response.content}")
+        # Use a fresh synthesis prompt for compatibility with providers that do
+        # not reliably accept tool-call history in a follow-up request.
+        synthesis_messages = [
+            SystemMessage(
+                content=(
+                    "Bạn là chuyên gia pháp lý. Hãy trả lời ngắn gọn bằng tiếng Việt, "
+                    "chỉ dựa trên kết quả tool được cung cấp."
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Câu hỏi: {question}\n\n"
+                    f"Kết quả tool:\n{'\n\n'.join(tool_results)}"
+                )
+            ),
+        ]
+        final_response = await llm.ainvoke(synthesis_messages)
+        final_text = final_response.content.strip() or "\n\n".join(tool_results)
+        print(f"\n✅ Kết quả:\n{final_text}")
     else:
         print(f"\n✅ Kết quả:\n{response.content}")
 

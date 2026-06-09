@@ -321,15 +321,71 @@ của một agent đã dừng.
 
 ## 8. Kết Quả Kiểm Tra
 
-- Năm service đã từng được khởi động đầy đủ.
+- Năm service đã được khởi động đầy đủ.
 - Registry hiển thị đủ bốn agent.
 - Request end-to-end chạy thành công.
 - `trace_id` và `context_id` được truyền xuyên suốt A2A metadata.
 - Hệ thống tiếp tục phản hồi khi Tax Agent dừng.
 - Tax Agent đã được rút gọn phản hồi xuống dưới 150 từ.
 - Toàn bộ source Python vượt qua kiểm tra `compileall`.
+- Tám unit/API test của Stage 5 client, CLI và web demo đều pass.
 
-## 9. Kết Luận
+## 9. Bài Tập Cộng Điểm
+
+### 9.1 Web demo Stage 5
+
+Thư mục `web_demo/` cung cấp giao diện Vite để:
+
+- Hiển thị trạng thái Registry, Customer, Law, Tax và Compliance Agent.
+- Chọn tuyến baseline hoặc optimized.
+- Gửi câu hỏi pháp lý tới Stage 5.
+- Hiển thị route, `trace_id`, `context_id`, phản hồi và end-to-end latency.
+
+Backend FastAPI đồng thời phục vụ static fallback khi máy không có Node:
+
+```bash
+uv run python -m web_demo.server
+```
+
+Mở `http://127.0.0.1:8080`. Nếu có Node/npm, chạy thêm Vite:
+
+```bash
+cd web_demo
+npm install
+npm run dev
+```
+
+### 9.2 Đo và giảm latency
+
+Phương án tối ưu là bỏ Customer Agent khi caller đã xác định chắc chắn input là
+câu hỏi pháp lý. Tuyến `direct-law` vẫn dùng Registry, Law Agent, Tax Agent,
+Compliance Agent và A2A, nhưng loại bỏ các lượt LLM dùng để phân loại và diễn
+đạt lại phản hồi tại Customer Agent.
+
+Kết quả một lần benchmark đại diện ngày 10/06/2026, cùng câu hỏi và model
+`mimo-v2.5-pro`:
+
+| Chế độ | Latency | Trace ID |
+|---|---:|---|
+| Baseline `customer` | 178.84 giây | `b7620f50-5d28-42f5-a278-7b207930a4a5` |
+| Optimized `direct-law` | 127.33 giây | `df659acf-5175-4d1d-a9ae-93599e972164` |
+
+Kết quả:
+
+- Giảm `51.51` giây.
+- Latency giảm `28.8%`.
+- Cả hai request đều hoàn tất và trả đủ phân tích pháp lý, thuế và tổng hợp.
+
+Có thể chạy lại phép đo bằng:
+
+```bash
+uv run python test_client.py --mode compare --json
+```
+
+Số liệu LLM có thể dao động theo tải của provider và độ dài output. Để đánh giá
+production nên chạy nhiều lần và báo cáo median cùng p95.
+
+## 10. Kết Luận
 
 Năm stage thể hiện quá trình tăng dần về khả năng và độ phức tạp, từ một lời gọi
 LLM trực tiếp đến hệ thống agent phân tán. Kiến trúc cuối hỗ trợ chuyên môn hóa,

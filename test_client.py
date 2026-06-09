@@ -1,18 +1,14 @@
-"""End-to-end test client for the Legal Multi-Agent System.
+"""End-to-end Stage 5 client with baseline and optimized latency modes."""
 
-Sends a legal question to the Customer Agent and prints the response.
-"""
-
+import argparse
 import asyncio
-import os
-import sys
+import json
 
-import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 
-CUSTOMER_AGENT_URL = os.getenv("CUSTOMER_AGENT_URL", "http://localhost:10100")
+from common.stage5_client import Stage5Result, ask_stage5
 
 QUESTION = (
     "If a company breaks a contract and avoids taxes, "
@@ -20,88 +16,67 @@ QUESTION = (
 )
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mode",
+        choices=["customer", "direct-law", "compare"],
+        default="customer",
+        help=(
+            "customer: full baseline route; direct-law: optimized route; "
+            "compare: run both sequentially"
+        ),
+    )
+    parser.add_argument("--question", default=QUESTION)
+    parser.add_argument("--json", action="store_true", dest="as_json")
+    return parser.parse_args()
+
+
+def print_result(result: Stage5Result) -> None:
+    print(f"Mode: {result.mode}")
+    print(f"Trace ID: {result.trace_id}")
+    print(f"Context ID: {result.context_id}")
+    print(f"Route: {' -> '.join(result.route)}")
+    print(
+        "Latency: "
+        f"{result.total_seconds:.2f}s total "
+        f"({result.discovery_seconds:.2f}s discovery, "
+        f"{result.request_seconds:.2f}s agent request)"
+    )
+    print("=" * 70)
+    print(result.answer or "No text response received.")
+    print("=" * 70)
+
+
 async def main() -> None:
-    from uuid import uuid4
+    args = parse_args()
+    modes = ["customer", "direct-law"] if args.mode == "compare" else [args.mode]
+    results: list[Stage5Result] = []
 
-    trace_id = str(uuid4())
-    context_id = str(uuid4())
+    for mode in modes:
+        print(f"\nSending request with mode={mode}...")
+        result = await ask_stage5(args.question, mode=mode)
+        results.append(result)
+        if not args.as_json:
+            print_result(result)
 
-    print(f"Connecting to Customer Agent at {CUSTOMER_AGENT_URL}")
-    print(f"Question: {QUESTION}")
-    print(f"Trace ID: {trace_id}")
-    print(f"Context ID: {context_id}")
-    print("-" * 60)
-
-    async with httpx.AsyncClient(timeout=300.0) as http_client:
-        # Resolve agent card
-        card_url = f"{CUSTOMER_AGENT_URL}/.well-known/agent.json"
-        try:
-            card_resp = await http_client.get(card_url)
-            card_resp.raise_for_status()
-        except Exception as e:
-            print(f"ERROR: Could not reach Customer Agent at {card_url}")
-            print(f"  {e}")
-            print("Make sure all services are running (./start_all.sh)")
-            sys.exit(1)
-
-        from a2a.types import AgentCard, Message, Part, Role, TextPart, MessageSendParams
-        from a2a.client import A2AClient
-        agent_card = AgentCard.model_validate(card_resp.json())
-        print(f"Connected to agent: {agent_card.name} v{agent_card.version}")
-        print("-" * 60)
-
-        # Build the legacy A2AClient
-        client = A2AClient(httpx_client=http_client, agent_card=agent_card)
-
-        # Construct the message
-        from a2a.types import SendMessageRequest, MessageSendParams as MSP
-        message = Message(
-            role=Role.user,
-            parts=[Part(root=TextPart(text=QUESTION))],
-            message_id=str(uuid4()),
-            context_id=context_id,
-            metadata={
-                "trace_id": trace_id,
-                "context_id": context_id,
-                "delegation_depth": 0,
-            },
+    if args.as_json:
+        payload: dict = {"results": [result.to_dict() for result in results]}
+        if len(results) == 2 and results[0].total_seconds > 0:
+            saved = results[0].total_seconds - results[1].total_seconds
+            payload["comparison"] = {
+                "seconds_saved": saved,
+                "percent_reduction": saved / results[0].total_seconds * 100,
+            }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    elif len(results) == 2:
+        saved = results[0].total_seconds - results[1].total_seconds
+        reduction = saved / results[0].total_seconds * 100
+        print(
+            "\nCOMPARISON: "
+            f"{saved:.2f}s saved, {reduction:.1f}% lower latency "
+            "(positive values mean direct-law was faster)."
         )
-        request = SendMessageRequest(
-            id=str(uuid4()),
-            params=MSP(message=message),
-        )
-
-        print("Sending request (this may take 30-60s while agents chain)...\n")
-        response = await client.send_message(request)
-
-        # Parse response
-        result_text = ""
-        if hasattr(response, "root"):
-            root = response.root
-            if hasattr(root, "result"):
-                result = root.result
-                # Task with artifacts
-                if hasattr(result, "artifacts") and result.artifacts:
-                    for artifact in result.artifacts:
-                        for part in artifact.parts:
-                            p = part.root if hasattr(part, "root") else part
-                            if hasattr(p, "text"):
-                                result_text += p.text
-                # Message with parts
-                elif hasattr(result, "parts") and result.parts:
-                    for part in result.parts:
-                        p = part.root if hasattr(part, "root") else part
-                        if hasattr(p, "text"):
-                            result_text += p.text
-
-        if result_text:
-            print("RESPONSE:")
-            print("=" * 60)
-            print(result_text)
-            print("=" * 60)
-        else:
-            print("No text response received. Raw response:")
-            print(response)
 
 
 if __name__ == "__main__":

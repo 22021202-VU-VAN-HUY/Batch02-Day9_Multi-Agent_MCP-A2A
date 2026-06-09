@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Demo Stage 5 Distributed A2A với đo latency baseline và optimized."
+    />
+    <title>Stage 5 A2A Control Room</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">DAY 09 · DISTRIBUTED A2A</p>
+          <h1>Legal Agent<br /><span>Control Room</span></h1>
+          <p class="hero-copy">
+            Quan sát một yêu cầu đi qua mạng lưới agent, so sánh tuyến đầy đủ
+            với tuyến tối ưu và đo latency ngay trên cùng một hệ thống.
+          </p>
+        </div>
+        <div class="system-badge" data-testid="system-status">
+          <span class="pulse"></span>
+          <span id="system-status-text">Đang kiểm tra hệ thống</span>
+        </div>
+      </header>
+
+      <section class="agent-grid" aria-label="Trạng thái agent">
+        <article class="agent-card" data-service="registry">
+          <div class="agent-index">00</div>
+          <div><strong>Registry</strong><span>Discovery · :10000</span></div>
+          <i class="status-dot"></i>
+        </article>
+        <article class="agent-card" data-service="customer">
+          <div class="agent-index">01</div>
+          <div><strong>Customer</strong><span>Entry point · :10100</span></div>
+          <i class="status-dot"></i>
+        </article>
+        <article class="agent-card" data-service="law">
+          <div class="agent-index">02</div>
+          <div><strong>Law</strong><span>Supervisor · :10101</span></div>
+          <i class="status-dot"></i>
+        </article>
+        <article class="agent-card" data-service="tax">
+          <div class="agent-index">03</div>
+          <div><strong>Tax</strong><span>Worker · :10102</span></div>
+          <i class="status-dot"></i>
+        </article>
+        <article class="agent-card" data-service="compliance">
+          <div class="agent-index">04</div>
+          <div><strong>Compliance</strong><span>Worker · :10103</span></div>
+          <i class="status-dot"></i>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <form id="query-form" class="query-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">REQUEST CONSOLE</p>
+              <h2>Gửi câu hỏi pháp lý</h2>
+            </div>
+            <label class="mode-select">
+              <span>Tuyến xử lý</span>
+              <select id="mode" name="mode">
+                <option value="customer">Baseline · qua Customer</option>
+                <option value="direct-law">Optimized · trực tiếp Law</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="question-field">
+            <span>Câu hỏi</span>
+            <textarea
+              id="question"
+              name="question"
+              rows="6"
+              required
+              minlength="3"
+            >If a company breaks a contract and avoids taxes, what are the legal and regulatory consequences?</textarea>
+          </label>
+
+          <div class="form-footer">
+            <p id="mode-note">
+              Tuyến đầy đủ dùng Customer Agent để phân loại và định dạng phản hồi.
+            </p>
+            <button id="submit-button" type="submit">
+              <span>Chạy hệ thống</span>
+              <b>↗</b>
+            </button>
+          </div>
+          <p id="error-message" class="error-message" role="alert"></p>
+        </form>
+
+        <aside class="route-panel">
+          <p class="eyebrow">LIVE ROUTE</p>
+          <h2>Đường đi dự kiến</h2>
+          <ol id="route-list" class="route-list"></ol>
+          <div class="optimization-note">
+            <span>OPTIMIZATION</span>
+            <p>
+              Direct-law bỏ vòng LLM phân loại và diễn đạt lại ở Customer Agent,
+              phù hợp khi đầu vào đã được xác định là câu hỏi pháp lý.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section id="result-panel" class="result-panel" hidden>
+        <div class="result-topline">
+          <div>
+            <p class="eyebrow">AGENT RESPONSE</p>
+            <h2>Kết quả phân tích</h2>
+          </div>
+          <div class="metric">
+            <span>END-TO-END LATENCY</span>
+            <strong id="latency-value">--</strong>
+          </div>
+        </div>
+        <div class="trace-grid">
+          <div><span>Mode</span><code id="result-mode"></code></div>
+          <div><span>Trace ID</span><code id="trace-id"></code></div>
+          <div><span>Context ID</span><code id="context-id"></code></div>
+        </div>
+        <pre id="response-text" class="response-text"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

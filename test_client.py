@@ -54,7 +54,8 @@ async def main() -> None:
     results: list[Stage5Result] = []
 
     for mode in modes:
-        print(f"\nSending request with mode={mode}...")
+        if not args.as_json:
+            print(f"\nSending request with mode={mode}...")
         result = await ask_stage5(args.question, mode=mode)
         results.append(result)
         if not args.as_json:

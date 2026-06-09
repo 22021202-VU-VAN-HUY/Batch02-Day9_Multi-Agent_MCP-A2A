@@ -18,14 +18,13 @@ from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 
-from src.task9_retrieval_pipeline import retrieve
-from src.task10_generation import (
-    reorder_for_llm,
-    format_context,
-    SYSTEM_PROMPT,
-    TEMPERATURE,
-    TOP_P,
-)
+from src.supervisor_workers import SupervisorAgent
+
+
+@st.cache_resource
+def get_supervisor() -> SupervisorAgent:
+    """Create one reusable Supervisor for the Streamlit process."""
+    return SupervisorAgent()
 
 # =============================================================================
 # PAGE CONFIG
@@ -76,7 +75,10 @@ if "messages" not in st.session_state:
 # HEADER
 # =============================================================================
 st.title("🤖 DrugLaw Chatbot")
-st.caption("Hỏi đáp pháp luật về ma tuý & tin tức nghệ sĩ | Hybrid RAG + Mimo LLM")
+st.caption(
+    "Supervisor điều phối Legal, News và Evidence Workers "
+    "| Hybrid RAG + Mimo LLM"
+)
 
 # =============================================================================
 # DISPLAY CHAT HISTORY
@@ -93,6 +95,15 @@ for msg in st.session_state.messages:
                     emoji = "📜" if t == "legal" else "📰"
                     st.markdown(f"**{emoji} [{i}] {s}** (score: {score:.4f})")
                     st.caption(src["content"][:200] + "...")
+        if msg.get("worker_reports"):
+            with st.expander("🧭 Supervisor execution"):
+                st.caption(msg.get("supervisor_plan", ""))
+                for report in msg["worker_reports"]:
+                    st.markdown(
+                        f"**{report['name']}** · {report['status']} · "
+                        f"{len(report['sources'])} sources · "
+                        f"{report['latency_seconds']:.3f}s"
+                    )
 
 # =============================================================================
 # CHAT INPUT
@@ -107,108 +118,61 @@ if query:
 
     # Generate answer
     with st.chat_message("assistant"):
-        with st.spinner("Đang tìm kiếm và tạo câu trả lời..."):
-            # Step 1: Retrieve
-            chunks = retrieve(
+        with st.spinner("Supervisor đang điều phối các workers..."):
+            supervisor = get_supervisor()
+            result = supervisor.run(
                 query,
                 top_k=top_k,
                 score_threshold=score_threshold,
                 use_reranking=use_reranking,
+                history=st.session_state.messages[:-1],
             )
 
-            if not chunks:
-                answer = "Tôi không tìm thấy thông tin liên quan trong cơ sở dữ liệu. Vui lòng thử câu hỏi khác."
-                st.markdown(answer)
-                st.session_state.messages.append({"role": "assistant", "content": answer})
-            else:
-                # Step 2: Reorder
-                reordered = reorder_for_llm(chunks)
+            st.markdown(result.answer)
+            st.caption(
+                f"Intent: {result.plan.intent} · "
+                f"{len(result.worker_reports)} workers · "
+                f"{result.total_seconds:.2f}s total"
+            )
 
-                # Step 3: Format context
-                context = format_context(reordered)
-
-                # Step 4: Build messages with conversation history
-                messages_for_llm = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-                # Add conversation history (last 6 messages for context)
-                for msg in st.session_state.messages[-6:]:
-                    messages_for_llm.append({
-                        "role": msg["role"],
-                        "content": msg["content"],
-                    })
-
-                # Add current query with context
-                user_msg = f"Context:\n{context}\n\n---\n\nQuestion: {query}"
-                messages_for_llm.append({"role": "user", "content": user_msg})
-
-                # Step 5: Call LLM
-                try:
-                    from openai import OpenAI
-
-                    # Try Mimo API first, fallback to OpenAI
-                    mimo_key = os.getenv("MIMO_API_KEY", "")
-                    mimo_base = os.getenv("MIMO_BASE_URL", "")
-                    mimo_model = os.getenv("MIMO_MODEL", "mimo-v2.5-pro")
-                    openai_key = os.getenv("OPENAI_API_KEY", "")
-
-                    client = None
-                    model = None
-
-                    # Try Mimo first
-                    if mimo_key and mimo_base:
-                        try:
-                            client = OpenAI(api_key=mimo_key, base_url=mimo_base)
-                            model = mimo_model
-                            # Quick test
-                            test_response = client.chat.completions.create(
-                                model=model,
-                                messages=[{"role": "user", "content": "test"}],
-                                temperature=0.1,
-                                max_tokens=1,
-                            )
-                            st.toast("📡 Using Mimo API", icon="✅")
-                        except Exception as mimo_error:
-                            st.warning(f"⚠️ Mimo API not available, using OpenAI fallback")
-                            client = None
-
-                    # Fallback to OpenAI
-                    if not client and openai_key:
-                        client = OpenAI(api_key=openai_key)
-                        model = "gpt-4o-mini"
-                        st.toast("📡 Using OpenAI API (Fallback)", icon="ℹ️")
-
-                    if not client:
-                        raise ValueError("No API key configured (both Mimo and OpenAI missing)")
-
-                    response = client.chat.completions.create(
-                        model=model,
-                        messages=messages_for_llm,
-                        temperature=TEMPERATURE,
-                        top_p=TOP_P,
-                        max_tokens=1024,
+            with st.expander("🧭 Supervisor plan & worker reports", expanded=True):
+                st.markdown(f"**Routing:** {result.plan.rationale}")
+                for report in result.worker_reports:
+                    icon = "✅" if report.status == "completed" else "⚠️"
+                    st.markdown(
+                        f"{icon} **{report.name}** — {report.role}  \n"
+                        f"Status: `{report.status}` · "
+                        f"Sources: `{len(report.sources)}` · "
+                        f"Confidence: `{report.confidence:.2f}` · "
+                        f"Latency: `{report.latency_seconds:.3f}s`"
                     )
-                    answer = response.choices[0].message.content or ""
-                except Exception as e:
-                    answer = f"Lỗi gọi LLM: {e}\n\nDưới đây là kết quả tìm kiếm thô:\n\n"
-                    for i, c in enumerate(chunks[:3], 1):
-                        answer += f"**[{i}]** {c['content'][:300]}...\n\n"
+                    if report.error:
+                        st.error(report.error)
 
-                # Display answer
-                st.markdown(answer)
+            with st.expander(f"📚 Sources ({len(result.sources)} chunks)"):
+                for i, src in enumerate(result.sources, 1):
+                    s = src.get("metadata", {}).get("source", "?")
+                    t = src.get("metadata", {}).get("type", "?")
+                    score = src.get("score", 0)
+                    emoji = "📜" if t == "legal" else "📰"
+                    st.markdown(f"**{emoji} [{i}] {s}** (score: {score:.4f})")
+                    st.caption(src["content"][:200] + "...")
 
-                # Display sources
-                with st.expander(f"📚 Sources ({len(chunks)} chunks)"):
-                    for i, src in enumerate(chunks, 1):
-                        s = src.get("metadata", {}).get("source", "?")
-                        t = src.get("metadata", {}).get("type", "?")
-                        score = src.get("score", 0)
-                        emoji = "📜" if t == "legal" else "📰"
-                        st.markdown(f"**{emoji} [{i}] {s}** (score: {score:.4f})")
-                        st.caption(src["content"][:200] + "...")
-
-                # Save to history
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": answer,
-                    "sources": chunks,
-                })
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": result.answer,
+                "sources": result.sources,
+                "supervisor_plan": (
+                    f"{result.plan.intent}: "
+                    f"{', '.join(result.plan.worker_names)}"
+                ),
+                "worker_reports": [
+                    {
+                        "name": report.name,
+                        "status": report.status,
+                        "sources": report.sources,
+                        "latency_seconds": report.latency_seconds,
+                    }
+                    for report in result.worker_reports
+                ],
+            })

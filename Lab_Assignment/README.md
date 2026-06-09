@@ -4,6 +4,88 @@
 
 ---
 
+## Cải Tiến Day08: Supervisor–Workers
+
+Day08 được mở rộng từ một RAG chatbot đơn luồng thành hệ thống multi-agent theo
+pattern **Supervisor–Workers**.
+
+```text
+User Query
+    |
+    v
+Supervisor
+    |-- lập kế hoạch và phân loại intent
+    |-- chạy Hybrid Retrieval một lần
+    |
+    |-- Legal Research Worker
+    |-- News Research Worker          (chạy song song)
+    |-- Evidence Review Worker
+    |
+    v
+Supervisor Aggregate + LLM
+    |
+    v
+Answer + citations + worker reports
+```
+
+### Ba workers
+
+| Worker | Trách nhiệm |
+|---|---|
+| `legal_research` | Chọn và tóm tắt evidence từ luật, nghị định và văn bản pháp lý |
+| `news_research` | Chọn và tóm tắt evidence từ corpus báo chí |
+| `evidence_review` | Kiểm tra độ phủ nguồn, confidence và citation map |
+
+Supervisor định tuyến theo câu hỏi:
+
+- Legal intent: `legal_research` + `evidence_review`.
+- News intent: `news_research` + `evidence_review`.
+- Mixed intent: chạy cả ba workers song song.
+
+Nếu một worker lỗi, Supervisor ghi nhận trạng thái `failed` và tiếp tục tổng hợp
+kết quả của các worker còn lại.
+
+Supervisor ưu tiên hybrid retrieval của Task 9. Nếu môi trường chưa cài
+`sentence-transformers` hoặc `rank-bm25`, CLI tự chuyển sang lightweight lexical
+retrieval trên corpus Markdown để demo vẫn hoạt động.
+
+MiMo dùng endpoint OpenAI-compatible:
+
+```env
+MIMO_BASE_URL=https://api.xiaomimimo.com/v1
+```
+
+### Chạy CLI
+
+```bash
+python supervisor_demo.py \
+  "Nghệ sĩ sử dụng ma tuý có thể chịu hình phạt nào?"
+```
+
+Output JSON:
+
+```bash
+python supervisor_demo.py --json
+```
+
+### Chạy Streamlit
+
+```bash
+streamlit run group_project/app.py
+```
+
+UI hiển thị routing plan, worker status, confidence, latency, sources và câu trả
+lời cuối cùng.
+
+### File chính
+
+- `src/supervisor_workers.py`: Supervisor, ba workers và aggregation.
+- `supervisor_demo.py`: CLI demo.
+- `group_project/app.py`: giao diện Streamlit tích hợp Supervisor.
+- `tests/test_supervisor_workers.py`: test routing, aggregation và failure isolation.
+
+---
+
 ## Mục Tiêu
 
 Xây dựng một RAG pipeline thực tế, end-to-end, từ thu thập dữ liệu pháp luật và báo chí về ma tuý → xử lý → indexing → retrieval (hybrid + vectorless fallback) → generation có citation.

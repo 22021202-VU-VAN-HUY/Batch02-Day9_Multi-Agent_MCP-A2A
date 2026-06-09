@@ -1,5 +1,3 @@
-import "./styles.css";
-
 const form = document.querySelector("#query-form");
 const modeSelect = document.querySelector("#mode");
 const routeList = document.querySelector("#route-list");

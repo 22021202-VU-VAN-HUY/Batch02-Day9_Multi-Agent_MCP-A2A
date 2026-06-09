@@ -32,6 +32,10 @@ When answering, be precise about:
 
 Always note that your response is for educational purposes and the user
 should consult a licensed attorney for specific legal advice.
+
+Keep the final response concise and under 150 words. Prioritise the most
+important civil and criminal penalties, responsible parties, and immediate
+recommended actions. Avoid repeating the user's question.
 """
 
 

@@ -170,6 +170,34 @@ run_dashboard()
 
 ## Kiến Trúc Hệ Thống
 
+### Supervisor–Workers RAG Chatbot
+
+```text
+Streamlit / CLI
+      |
+      v
+SupervisorAgent
+      |-- classify intent: legal / news / mixed
+      |-- retrieve candidate evidence once
+      |
+      |-- LegalResearchWorker ------|
+      |-- NewsResearchWorker -------| parallel
+      |-- EvidenceReviewWorker -----|
+      |
+      v
+Aggregate evidence + generate cited answer
+```
+
+Supervisor là điểm điều phối duy nhất. Workers không gọi lẫn nhau:
+
+1. `LegalResearchWorker` xử lý nguồn pháp luật.
+2. `NewsResearchWorker` xử lý nguồn báo chí.
+3. `EvidenceReviewWorker` đánh giá độ phủ và nguồn citation.
+
+Kết quả từng worker có `status`, `findings`, `sources`, `confidence`,
+`latency_seconds`. Lỗi một worker được cô lập để các worker còn lại vẫn hoàn
+thành request.
+
 ### Option A: Search Engine (Streamlit)
 
 ```
@@ -240,10 +268,14 @@ run_dashboard()
 # Cài đặt dependencies
 pip install -r requirements.txt
 
-# Chạy app
-streamlit run app.py
-# hoặc
-chainlit run app.py
+# Chạy Supervisor CLI từ thư mục Lab_Assignment
+python supervisor_demo.py
+
+# Chạy app từ thư mục Lab_Assignment
+streamlit run group_project/app.py
+
+# Test riêng Supervisor-Workers
+python -m unittest tests.test_supervisor_workers -v
 ```
 
 ---

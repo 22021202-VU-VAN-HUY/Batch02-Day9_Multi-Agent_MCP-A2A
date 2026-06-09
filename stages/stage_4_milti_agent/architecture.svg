@@ -75,9 +75,9 @@
   <text x="450" y="514" text-anchor="middle" font-size="9" fill="#94a3b8">search_compliance_law tool</text>
   <text x="450" y="530" text-anchor="middle" font-size="9" fill="#64748b">SEC, SOX, AML, FCPA</text>
 
-  <!-- Node 3c: call_privacy_specialist -->
+  <!-- Node 3c: privacy_agent -->
   <rect x="600" y="450" width="220" height="90" rx="12" fill="#1e293b" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="710" y="474" text-anchor="middle" font-size="11" font-weight="700" fill="#4ade80">call_privacy_specialist</text>
+  <text x="710" y="474" text-anchor="middle" font-size="11" font-weight="700" fill="#4ade80">privacy_agent</text>
   <text x="710" y="498" text-anchor="middle" font-size="9" fill="#94a3b8">Privacy specialist agent</text>
   <text x="710" y="514" text-anchor="middle" font-size="9" fill="#94a3b8">Data protection analysis</text>
   <text x="710" y="530" text-anchor="middle" font-size="9" fill="#64748b">GDPR, CCPA, breach notices</text>

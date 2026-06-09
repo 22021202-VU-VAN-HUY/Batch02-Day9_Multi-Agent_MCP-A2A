@@ -7,7 +7,7 @@ flowchart TD
 
     ROUTER -->|tax / IRS / thuế| TAX[call_tax_specialist<br/>Tax ReAct agent]
     ROUTER -->|compliance / SEC / SOX / AML| COMPLIANCE[call_compliance_specialist<br/>Compliance ReAct agent]
-    ROUTER -->|data / privacy / GDPR / dữ liệu| PRIVACY[call_privacy_specialist<br/>Privacy agent]
+    ROUTER -->|data / privacy / GDPR / dữ liệu| PRIVACY[privacy_agent<br/>Privacy agent]
     ROUTER -->|No specialist needed| AGGREGATE[aggregate]
 
     TAX --> AGGREGATE

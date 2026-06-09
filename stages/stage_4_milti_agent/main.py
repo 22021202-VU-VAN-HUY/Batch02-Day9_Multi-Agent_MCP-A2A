@@ -161,7 +161,7 @@ def check_routing(state: LegalState) -> list[Send]:
         keyword in question_lower
         for keyword in ["data", "privacy", "gdpr", "ccpa", "dữ liệu"]
     ):
-        sends.append(Send("call_privacy_specialist", state))
+        sends.append(Send("privacy_agent", state))
 
     if not sends:
         sends.append(Send("aggregate", state))
@@ -216,9 +216,9 @@ async def call_compliance_specialist(state: LegalState) -> dict:
     return {"compliance_result": final_msg}
 
 
-async def call_privacy_specialist(state: LegalState) -> dict:
+async def privacy_agent(state: LegalState) -> dict:
     """Privacy specialist focusing on GDPR and personal-data protection."""
-    print("\n  [Node: call_privacy_specialist] Privacy specialist agent starting...")
+    print("\n  [Node: privacy_agent] Privacy specialist agent starting...")
 
     llm = get_llm()
     messages = [
@@ -238,7 +238,7 @@ async def call_privacy_specialist(state: LegalState) -> dict:
         ),
     ]
     result = await llm.ainvoke(messages)
-    print(f"  [Node: call_privacy_specialist] Done ({len(result.content)} chars)")
+    print(f"  [Node: privacy_agent] Done ({len(result.content)} chars)")
     return {"privacy_result": result.content}
 
 
@@ -286,7 +286,7 @@ def create_graph():
     graph.add_node("analyze_law", analyze_law)
     graph.add_node("call_tax_specialist", call_tax_specialist)
     graph.add_node("call_compliance_specialist", call_compliance_specialist)
-    graph.add_node("call_privacy_specialist", call_privacy_specialist)
+    graph.add_node("privacy_agent", privacy_agent)
     graph.add_node("aggregate", aggregate)
 
     graph.set_entry_point("analyze_law")
@@ -296,13 +296,13 @@ def create_graph():
         [
             "call_tax_specialist",
             "call_compliance_specialist",
-            "call_privacy_specialist",
+            "privacy_agent",
             "aggregate",
         ],
     )
     graph.add_edge("call_tax_specialist", "aggregate")
     graph.add_edge("call_compliance_specialist", "aggregate")
-    graph.add_edge("call_privacy_specialist", "aggregate")
+    graph.add_edge("privacy_agent", "aggregate")
     graph.add_edge("aggregate", END)
 
     return graph.compile()

@@ -131,6 +131,27 @@ cp .env.example .env
 
 # In another terminal, send a test question
 uv run python test_client.py
+
+# Compare the full route with the optimized direct-to-Law route
+uv run python test_client.py --mode compare
+```
+
+### Run the Stage 5 Web Demo
+
+The FastAPI server can host the demo directly without Node:
+
+```bash
+uv run python -m web_demo.server
+# Open http://127.0.0.1:8080
+```
+
+For Vite development with hot reload, keep the FastAPI server running, then:
+
+```bash
+cd web_demo
+npm install
+npm run dev
+# Open http://127.0.0.1:5173
 ```
 
 ### Run Individual Stage Demos
@@ -141,7 +162,7 @@ No servers needed — each demo runs as a standalone script:
 uv run python stages/stage_1_direct_llm/main.py
 uv run python stages/stage_2_rag_tools/main.py
 uv run python stages/stage_3_single_agent/main.py
-uv run python stages/stage_4_multi_agent/main.py
+uv run python stages/stage_4_milti_agent/main.py
 ```
 
 ## LLM Evolution Stages

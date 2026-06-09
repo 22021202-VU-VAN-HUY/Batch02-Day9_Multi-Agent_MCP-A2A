@@ -59,19 +59,25 @@ test_client.py
   -> test_client.py nhận response
 ```
 
-Sao chép một `trace_id` từ log của Customer Agent và xác nhận cùng giá trị đó
-xuất hiện trong log của Law, Tax và Compliance Agent:
+`test_client.py` hiện tự sinh, in và gửi `trace_id` cùng `context_id` trong A2A
+metadata. Trace của lần fault test:
 
 ```text
-trace_id: <dán trace ID vào đây>
-Customer Agent: đã xác nhận / chưa xác nhận
-Law Agent: đã xác nhận / chưa xác nhận
-Tax Agent: đã xác nhận / chưa xác nhận
-Compliance Agent: đã xác nhận / chưa xác nhận
+trace_id: f5ced465-6275-4761-9f41-4d289768dff4
+context_id: 31ce5f99-592f-483f-bd19-1462f3efbacf
 ```
 
-Registry hiện không nhận trace metadata. Log của Registry vẫn hiển thị các lần
-discovery, nhưng chưa thể liên kết chúng với request bằng `trace_id`.
+Trace của lần kiểm tra end-to-end sau khi restart Tax Agent:
+
+```text
+trace_id: b9592ced-88f0-4cdc-b278-6fe2f9ddcb6d
+context_id: ef060a9d-8aba-4823-8b0b-0320be0b43a6
+```
+
+Customer Agent nhận metadata từ client. Hàm `delegate` tiếp tục gửi cùng
+`trace_id` và `context_id` tới Law, Tax và Compliance Agent. Các
+`AgentExecutor` đều ghi những giá trị này vào log. Registry hiện không nhận
+trace metadata nên log discovery chưa thể liên kết bằng `trace_id`.
 
 ## 5.2 Dynamic Discovery Và Xử Lý Lỗi
 
@@ -93,15 +99,20 @@ Kết quả mong đợi:
 Ghi nhận thực tế:
 
 ```text
-Kết quả: chưa thực hiện
-Lỗi quan sát được: chưa thực hiện
-Toàn bộ hệ thống có bị dừng không: chưa xác nhận
-Response có chứa các phân tích còn lại không: chưa xác nhận
+Kết quả: request vẫn hoàn tất và client nhận được response.
+Lỗi quan sát được: endpoint Tax Agent không còn lắng nghe sau khi dừng process.
+Toàn bộ hệ thống có bị dừng không: không.
+Response có chứa các phân tích còn lại không: có.
 ```
 
-Kết luận dự kiến: Registry là service discovery lưu dữ liệu trong memory, chưa
-có health check hoặc tự động xóa agent đã dừng. Law Agent có khả năng chịu lỗi
-một phần vì nó cô lập lỗi của từng specialist agent.
+Final response vẫn có một phần nội dung về thuế dù Tax Agent đã dừng. Nguyên
+nhân là Law Agent và model tổng hợp cũng có kiến thức thuế, nên nội dung cuối
+không phải bằng chứng chắc chắn rằng Tax Agent đã được gọi thành công. Muốn
+xác định trạng thái specialist phải kiểm tra endpoint và log theo `trace_id`.
+
+Kết luận: Registry là service discovery lưu dữ liệu trong memory, chưa có
+health check hoặc tự động xóa agent đã dừng. Law Agent có khả năng chịu lỗi một
+phần vì nó cô lập lỗi của từng specialist agent.
 
 ## 5.3 Thay Đổi Hành Vi Tax Agent
 
@@ -121,15 +132,19 @@ Các bước xác nhận:
 
 ```text
 Trước: phần phân tích thuế chi tiết và dài.
-Sau: chưa xác nhận; dự kiến ngắn hơn và tập trung vào các ý quan trọng.
+Sau: Tax Agent trả trực tiếp 115 từ, dưới giới hạn 150 từ.
 ```
+
+Final response từ `test_client.py` vẫn có thể dài vì Law Agent và Customer
+Agent tiếp tục tổng hợp, định dạng và diễn giải lại kết quả của Tax Agent.
 
 ## Checklist Hoàn Thành Stage 5
 
 - [x] Đã khởi động đủ năm service.
 - [x] Registry hiển thị đủ bốn agent.
 - [x] Request end-to-end đầu tiên chạy thành công.
-- [ ] Đã xác nhận một `trace_id` trên Customer, Law, Tax và Compliance Agent.
-- [ ] Đã dừng Tax Agent và ghi nhận cách hệ thống xử lý lỗi.
+- [x] Client đã tạo và gửi `trace_id` xuyên suốt A2A metadata.
+- [x] Đã dừng Tax Agent và ghi nhận cách hệ thống xử lý lỗi.
 - [x] Đã sửa prompt Tax Agent để trả lời ngắn hơn.
-- [ ] Đã restart Tax Agent và so sánh kết quả end-to-end cuối cùng.
+- [x] Đã restart Tax Agent và chạy lại end-to-end thành công.
+- [x] Đã gọi trực tiếp Tax Agent và xác nhận response có 115 từ.

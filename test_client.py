@@ -21,8 +21,15 @@ QUESTION = (
 
 
 async def main() -> None:
+    from uuid import uuid4
+
+    trace_id = str(uuid4())
+    context_id = str(uuid4())
+
     print(f"Connecting to Customer Agent at {CUSTOMER_AGENT_URL}")
     print(f"Question: {QUESTION}")
+    print(f"Trace ID: {trace_id}")
+    print(f"Context ID: {context_id}")
     print("-" * 60)
 
     async with httpx.AsyncClient(timeout=300.0) as http_client:
@@ -39,8 +46,6 @@ async def main() -> None:
 
         from a2a.types import AgentCard, Message, Part, Role, TextPart, MessageSendParams
         from a2a.client import A2AClient
-        from uuid import uuid4
-
         agent_card = AgentCard.model_validate(card_resp.json())
         print(f"Connected to agent: {agent_card.name} v{agent_card.version}")
         print("-" * 60)
@@ -54,6 +59,12 @@ async def main() -> None:
             role=Role.user,
             parts=[Part(root=TextPart(text=QUESTION))],
             message_id=str(uuid4()),
+            context_id=context_id,
+            metadata={
+                "trace_id": trace_id,
+                "context_id": context_id,
+                "delegation_depth": 0,
+            },
         )
         request = SendMessageRequest(
             id=str(uuid4()),

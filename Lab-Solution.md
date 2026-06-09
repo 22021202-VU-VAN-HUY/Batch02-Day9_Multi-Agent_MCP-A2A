@@ -385,53 +385,7 @@ uv run python test_client.py --mode compare --json
 Số liệu LLM có thể dao động theo tải của provider và độ dài output. Để đánh giá
 production nên chạy nhiều lần và báo cáo median cùng p95.
 
-## 10. Assignment Day08: Supervisor–Workers
-
-Code Day08 trong `Lab_Assignment/` đã được mở rộng thành hệ thống
-Supervisor–Workers:
-
-- Supervisor phân loại câu hỏi thành `legal`, `news` hoặc `mixed`.
-- `Legal Research Worker` xử lý văn bản pháp luật.
-- `News Research Worker` xử lý corpus báo chí.
-- `Evidence Review Worker` kiểm tra độ phủ nguồn và citation.
-- Hai hoặc ba workers được chạy song song tùy routing plan.
-- Supervisor hợp nhất evidence và gọi LLM một lần để sinh câu trả lời.
-- Lỗi của một worker được cô lập, không làm dừng toàn bộ request.
-- Streamlit hiển thị plan, trạng thái, confidence và latency của từng worker.
-- Supervisor có lightweight retrieval fallback khi thiếu optional model packages.
-
-Kết quả kiểm tra với câu hỏi mixed intent:
-
-```text
-Nghệ sĩ sử dụng ma tuý có thể chịu hình phạt nào?
-```
-
-- Routing: `legal_research`, `news_research`, `evidence_review`.
-- Cả ba workers hoàn thành.
-- Retrieval lấy được cả nguồn luật và nguồn báo chí.
-- MiMo tạo câu trả lời có citation trong `29.36` giây.
-- Câu trả lời nêu rõ giới hạn evidence và không suy đoán mức phạt còn thiếu.
-- `7/7` test Supervisor–Workers pass.
-
-Các file chính:
-
-```text
-Lab_Assignment/
-  supervisor_demo.py
-  src/supervisor_workers.py
-  group_project/app.py
-  tests/test_supervisor_workers.py
-```
-
-Chạy demo:
-
-```bash
-cd Lab_Assignment
-python supervisor_demo.py
-streamlit run group_project/app.py
-```
-
-## 11. Kết Luận
+## 10. Kết Luận
 
 Năm stage thể hiện quá trình tăng dần về khả năng và độ phức tạp, từ một lời gọi
 LLM trực tiếp đến hệ thống agent phân tán. Kiến trúc cuối hỗ trợ chuyên môn hóa,
